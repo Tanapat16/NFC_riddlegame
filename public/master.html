@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riddle Game - เครื่องแม่</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --card:#f3f4f6; --accent:#4f46e5; --danger:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --fg:#f9fafb; --card:#1f2937; --accent:#818cf8; --danger:#f87171; } }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); padding:24px; max-width:720px; margin-inline:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; }
+  .card { background:var(--card); border-radius:12px; padding:14px; }
+  .card small { opacity:.7 } .card b { display:block; font-size:1.8rem; }
+  button { font-size:1.1rem; padding:14px 22px; border:0; border-radius:10px; cursor:pointer; color:#fff; background:var(--accent); }
+  button.danger { background:var(--danger); }
+  .btns { display:flex; gap:12px; margin:20px 0; flex-wrap:wrap; }
+  ul { padding:0; list-style:none; } li { background:var(--card); border-radius:8px; padding:8px 12px; margin:6px 0; }
+  #conn { font-size:.9rem; }
+</style>
+</head>
+<body>
+  <h1>เครื่องแม่ <span id="conn">⏳</span></h1>
+  <div class="grid">
+    <div class="card"><small>เวลาที่เหลือ</small><b id="time">--</b></div>
+    <div class="card"><small>คะแนน</small><b id="score">0</b></div>
+    <div class="card"><small>สตรีค</small><b id="streak">0</b></div>
+    <div class="card"><small>สถานะ</small><b id="active">-</b></div>
+  </div>
+  <div class="card" style="margin-top:12px"><small>คำตอบที่พิมพ์อยู่</small><b id="answer">-</b></div>
+  <div class="btns">
+    <button id="reset">เริ่มเกมใหม่</button>
+    <button id="pass" class="danger">ข้ามข้อ</button>
+  </div>
+  <h3>ชิปที่สแกน</h3>
+  <ul id="chips"></ul>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const $ = (id) => document.getElementById(id);
+    socket.on('connect', () => ($('conn').textContent = '🟢'));
+    socket.on('disconnect', () => ($('conn').textContent = '🔴'));
+    socket.on('server:state', (s) => {
+      $('time').textContent = s.timeLeft;
+      $('score').textContent = s.score;
+      $('streak').textContent = s.streak;
+      $('active').textContent = s.isGameActive ? 'กำลังเล่น' : 'หยุด';
+      $('answer').textContent = s.currentAnswer || '-';
+      $('chips').innerHTML = s.scannedChips.slice().reverse()
+        .map((c) => `<li><b style="display:inline">${c.chipName}</b> <small>${c.uid} · ${new Date(c.scannedAt).toLocaleTimeString('th-TH')}</small></li>`).join('');
+    });
+    $('reset').onclick = () => socket.emit('master:remote-reset');
+    $('pass').onclick = () => socket.emit('master:force-pass');
+  </script>
+</body>
+</html>

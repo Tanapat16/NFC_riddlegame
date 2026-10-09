@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riddle Game - เครื่องลูก</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --card:#f3f4f6; --accent:#4f46e5; --ok:#16a34a; --bad:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --fg:#f9fafb; --card:#1f2937; --accent:#818cf8; --ok:#4ade80; --bad:#f87171; } }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); text-align:center; padding:24px; }
+  .time { font-size:min(22vw,160px); font-weight:700; color:var(--accent); line-height:1; }
+  .row { display:flex; gap:12px; justify-content:center; margin:24px 0; flex-wrap:wrap; }
+  .card { background:var(--card); border-radius:12px; padding:16px 28px; min-width:120px; }
+  .card b { display:block; font-size:2rem; }
+  input, select, button { font-size:1.1rem; padding:10px 14px; border-radius:8px; border:2px solid var(--accent); background:var(--bg); color:var(--fg); }
+  #answer { font-size:1.5rem; width:min(90%,420px); padding:12px; }
+  button { background:var(--accent); color:#fff; cursor:pointer; border:0; }
+  #chips span { display:inline-block; margin:4px; padding:6px 12px; border-radius:999px; background:var(--accent); color:#fff; }
+  #over { display:none; font-size:2rem; margin-top:16px; }
+  .bar { margin-top:28px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; font-size:.95rem; }
+</style>
+</head>
+<body>
+  <div class="time" id="time">--</div>
+  <div class="row">
+    <div class="card">คะแนน<b id="score">0</b></div>
+    <div class="card">สตรีค<b id="streak">0</b></div>
+  </div>
+  <input id="answer" placeholder="พิมพ์คำตอบที่นี่" autocomplete="off">
+  <div id="chips" style="margin-top:20px"></div>
+  <div id="over">หมดเวลา!</div>
+
+  <div class="bar">
+    <span id="net">🔴 ออฟไลน์</span>
+    <select id="baud">
+      <option>115200</option><option>9600</option><option>57600</option><option>250000</option>
+    </select>
+    <button id="serialBtn">เชื่อมต่อ Reader (Web Serial)</button>
+    <span id="serialStatus">⚪ ยังไม่ได้เชื่อมต่อ</span>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const $ = (id) => document.getElementById(id);
+
+    // เครื่องลูกเป็นเจ้าของ state ของเกม (เวลา/คะแนน/คำตอบ) แล้วรายงานขึ้นเซิร์ฟเวอร์
+    let local = { timeLeft: 0, score: 0, streak: 0, currentAnswer: '', scannedChips: [], isGameActive: false };
+    let synced = false; // รับ state จากเซิร์ฟเวอร์ครั้งแรกครั้งเดียว (กรณีรีเฟรชหน้า)
+
+    function render() {
+      $('time').textContent = local.timeLeft;
+      $('score').textContent = local.score;
+      $('streak').textContent = local.streak;
+      if (document.activeElement !== $('answer')) $('answer').value = local.currentAnswer;
+      $('chips').innerHTML = local.scannedChips.map((c) => `<span>${c.chipName}</span>`).join('');
+      $('over').style.display = !local.isGameActive && local.timeLeft === 0 ? 'block' : 'none';
+    }
+    const push = (patch) => socket.emit('client:update-state', patch);
+
+    // ── นับเวลาที่เครื่องลูก ──
+    setInterval(() => {
+      if (!local.isGameActive) return;
+      local.timeLeft = Math.max(0, local.timeLeft - 1);
+      if (local.timeLeft === 0) local.isGameActive = false;
+      render();
+      push({ timeLeft: local.timeLeft, isGameActive: local.isGameActive });
+    }, 1000);
+
+    // ── Socket ──
+    socket.on('connect', () => ($('net').textContent = '🟢 ออนไลน์'));
+    socket.on('disconnect', () => ($('net').textContent = '🔴 ออฟไลน์'));
+    socket.on('server:state', (s) => { if (!synced) { synced = true; local = { ...s }; render(); } });
+    socket.on('client:reset', (s) => { synced = true; local = { ...s }; render(); });
+    socket.on('client:force-pass', () => { local.currentAnswer = ''; local.scannedChips = []; render(); });
+    socket.on('server:nfc-scanned', (chip) => {
+      local.scannedChips = [...local.scannedChips, chip].slice(-50);
+      render();
+      // TODO: ใส่ตรรกะตรวจคำตอบ/ให้คะแนนจาก chip ตรงนี้ แล้วเรียก push({ score, streak })
+    });
+
+    $('answer').addEventListener('input', (e) => {
+      local.currentAnswer = e.target.value;
+      push({ currentAnswer: local.currentAnswer });
+    });
+
+    // ── Web Serial: อ่านบรรทัดจากบอร์ด/Reader แล้วส่งเข้า client:nfc-scanned ──
+    // รองรับบรรทัดแบบ JSON {"uid":"..","chipName":".."} หรือ CSV uid,chipName
+    function parseLine(line) {
+      try {
+        const o = JSON.parse(line);
+        if (o && o.uid && o.chipName) return { uid: String(o.uid), chipName: String(o.chipName) };
+      } catch (_) {}
+      const [uid, ...rest] = line.split(/[,;|]/).map((s) => s.trim());
+      const chipName = rest.join(',');
+      return uid && chipName ? { uid, chipName } : null;
+    }
+
+    async function connectSerial() {
+      if (!('serial' in navigator)) return alert('เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge บนคอมพิวเตอร์)');
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: Number($('baud').value) });
+        $('serialStatus').textContent = '🟢 Reader เชื่อมต่อแล้ว';
+
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable).catch(() => {});
+        const reader = decoder.readable.getReader();
+        let buf = '';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += value;
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, i).trim();
+            buf = buf.slice(i + 1);
+            const scan = line && parseLine(line);
+            if (scan) socket.emit('client:nfc-scanned', { ...scan, source: 'web-serial' });
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        $('serialStatus').textContent = '🔴 ' + (err.message || 'เชื่อมต่อไม่สำเร็จ');
+      }
+    }
+    $('serialBtn').onclick = connectSerial;
+  </script>
+</body>
+</html>
