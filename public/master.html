@@ -21,14 +21,15 @@
 <body>
   <h1>เครื่องแม่ <span id="conn">⏳</span></h1>
   <div class="grid">
-    <div class="card"><small>เวลาที่เหลือ</small><b id="time">--</b></div>
+    <div class="card"><small>พลังชีวิต</small><b id="hp">-</b></div>
     <div class="card"><small>คะแนน</small><b id="score">0</b></div>
     <div class="card"><small>สตรีค</small><b id="streak">0</b></div>
     <div class="card"><small>สถานะ</small><b id="active">-</b></div>
+    <div class="card"><small>โจทย์</small><b id="riddle" style="font-size:1.2rem">-</b></div>
   </div>
   <div class="card" style="margin-top:12px"><small>คำตอบที่พิมพ์อยู่</small><b id="answer">-</b></div>
   <div class="btns">
-    <button id="reset">เริ่มเกมใหม่</button>
+    <button id="reset">รีเซ็ตเกม</button>
     <button id="pass" class="danger">ข้ามข้อ</button>
   </div>
   <h3>ชิปที่สแกน</h3>
@@ -41,10 +42,12 @@
     socket.on('connect', () => ($('conn').textContent = '🟢'));
     socket.on('disconnect', () => ($('conn').textContent = '🔴'));
     socket.on('server:state', (s) => {
-      $('time').textContent = s.timeLeft;
+      const hp = Math.max(0, Math.min(3, s.hp ?? 0));
+      $('hp').textContent = '❤️'.repeat(hp) + '🖤'.repeat(3 - hp);
       $('score').textContent = s.score;
       $('streak').textContent = s.streak;
       $('active').textContent = s.isGameActive ? 'กำลังเล่น' : 'หยุด';
+      $('riddle').textContent = s.riddleId || '-';
       $('answer').textContent = s.currentAnswer || '-';
       $('chips').innerHTML = s.scannedChips.slice().reverse()
         .map((c) => `<li><b style="display:inline">${c.chipName}</b> <small>${c.uid} · ${new Date(c.scannedAt).toLocaleTimeString('th-TH')}</small></li>`).join('');

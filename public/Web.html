@@ -1,130 +1,351 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Riddle Game - เครื่องลูก</title>
-<style>
-  :root { --bg:#fff; --fg:#1a1a1a; --card:#f3f4f6; --accent:#4f46e5; --ok:#16a34a; --bad:#dc2626; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --fg:#f9fafb; --card:#1f2937; --accent:#818cf8; --ok:#4ade80; --bad:#f87171; } }
-  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); text-align:center; padding:24px; }
-  .time { font-size:min(22vw,160px); font-weight:700; color:var(--accent); line-height:1; }
-  .row { display:flex; gap:12px; justify-content:center; margin:24px 0; flex-wrap:wrap; }
-  .card { background:var(--card); border-radius:12px; padding:16px 28px; min-width:120px; }
-  .card b { display:block; font-size:2rem; }
-  input, select, button { font-size:1.1rem; padding:10px 14px; border-radius:8px; border:2px solid var(--accent); background:var(--bg); color:var(--fg); }
-  #answer { font-size:1.5rem; width:min(90%,420px); padding:12px; }
-  button { background:var(--accent); color:#fff; cursor:pointer; border:0; }
-  #chips span { display:inline-block; margin:4px; padding:6px 12px; border-radius:999px; background:var(--accent); color:#fff; }
-  #over { display:none; font-size:2rem; margin-top:16px; }
-  .bar { margin-top:28px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; font-size:.95rem; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangible AI Riddle Board</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap');
+
+        :root { --bg-color: #0f172a; --panel-bg: #1e293b; --primary: #38bdf8; --error: #ef4444; --text-main: #f8fafc; }
+        body { font-family: 'Kanit', sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; box-sizing: border-box; }
+        .container { width: 100%; max-width: 800px; background: var(--panel-bg); border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 20px; margin-bottom: 30px; flex-wrap: wrap; gap: 12px; }
+        .header h1 { margin: 0; font-size: 28px; color: var(--primary); }
+        .stats { font-size: 20px; display: flex; gap: 24px; flex-wrap: wrap; }
+        .story-board { min-height: 180px; background: #0b1120; border-radius: 12px; padding: 24px; font-size: 24px; line-height: 1.6; margin-bottom: 24px; border-left: 4px solid var(--primary); }
+        .hint-box { color: #facc15; font-size: 18px; min-height: 30px; margin-bottom: 12px; }
+        .chips { color: #94a3b8; font-size: 16px; min-height: 24px; margin-bottom: 12px; }
+        .input-area { display: flex; gap: 16px; }
+        input[type="text"] { flex: 1; min-width: 0; padding: 16px; font-size: 20px; border-radius: 12px; background: #334155; color: white; border: 1px solid #475569; font-family: 'Kanit', sans-serif; }
+        input[type="text"]:focus { outline: none; border-color: var(--primary); }
+        button { padding: 16px 32px; font-size: 20px; background: var(--primary); color: #0f172a; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-family: 'Kanit', sans-serif; }
+        button:disabled { opacity: .5; cursor: not-allowed; }
+        .status-bar { margin-top: 24px; font-size: 14px; color: #94a3b8; }
+        .serial-row { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .serial-row select { background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; padding: 6px 8px; font-family: 'Kanit', sans-serif; }
+        button.ghost { padding: 6px 14px; font-size: 14px; background: transparent; color: var(--primary); border: 1px solid var(--primary); font-weight: 400; }
+        .pulse { animation: pulse 1.5s infinite; opacity: 0.5; }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+    </style>
 </head>
 <body>
-  <div class="time" id="time">--</div>
-  <div class="row">
-    <div class="card">คะแนน<b id="score">0</b></div>
-    <div class="card">สตรีค<b id="streak">0</b></div>
-  </div>
-  <input id="answer" placeholder="พิมพ์คำตอบที่นี่" autocomplete="off">
-  <div id="chips" style="margin-top:20px"></div>
-  <div id="over">หมดเวลา!</div>
 
-  <div class="bar">
-    <span id="net">🔴 ออฟไลน์</span>
-    <select id="baud">
-      <option>115200</option><option>9600</option><option>57600</option><option>250000</option>
-    </select>
-    <button id="serialBtn">เชื่อมต่อ Reader (Web Serial)</button>
-    <span id="serialStatus">⚪ ยังไม่ได้เชื่อมต่อ</span>
-  </div>
+<div class="container">
+    <div class="header">
+        <h1>✨ AI Riddle Board</h1>
+        <div class="stats">
+            <div>คะแนน: <span id="score">1000</span></div>
+            <div>สตรีค: <span id="streak">0</span></div>
+            <div style="color:var(--error);">พลังชีวิต: <span id="hp">❤️❤️❤️</span></div>
+        </div>
+    </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+    <div class="story-board" id="storyBoard">
+        <span class="pulse" id="waitingText">Connecting to Server...</span>
+    </div>
+    <div class="hint-box" id="hintBox"></div>
+    <div class="chips" id="chips"></div>
+    <div class="input-area">
+        <input type="text" id="answerInput" placeholder="พิมพ์คำตอบของคุณที่นี่..." autocomplete="off" disabled>
+        <button id="submitBtn" disabled>ตอบคำถาม</button>
+    </div>
+
+    <div class="status-bar">
+        <div id="systemStatus">Status: Connecting...</div>
+        <div class="serial-row">
+            <select id="baud">
+                <option>115200</option><option>9600</option><option>57600</option><option>250000</option>
+            </select>
+            <button id="serialBtn" class="ghost" type="button">เชื่อมต่อ Reader (Web Serial)</button>
+            <span id="serialStatus">⚪ ยังไม่ได้เชื่อมต่อ</span>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
     const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    // เครื่องลูกเป็นเจ้าของ state ของเกม (เวลา/คะแนน/คำตอบ) แล้วรายงานขึ้นเซิร์ฟเวอร์
-    let local = { timeLeft: 0, score: 0, streak: 0, currentAnswer: '', scannedChips: [], isGameActive: false };
-    let synced = false; // รับ state จากเซิร์ฟเวอร์ครั้งแรกครั้งเดียว (กรณีรีเฟรชหน้า)
-
-    function render() {
-      $('time').textContent = local.timeLeft;
-      $('score').textContent = local.score;
-      $('streak').textContent = local.streak;
-      if (document.activeElement !== $('answer')) $('answer').value = local.currentAnswer;
-      $('chips').innerHTML = local.scannedChips.map((c) => `<span>${c.chipName}</span>`).join('');
-      $('over').style.display = !local.isGameActive && local.timeLeft === 0 ? 'block' : 'none';
-    }
+    // เชื่อมต่อ Socket.io กับเซิร์ฟเวอร์เดียวกับที่เสิร์ฟหน้านี้ (nfc-riddlegame.onrender.com)
+    const socket = io();
     const push = (patch) => socket.emit('client:update-state', patch);
 
-    // ── นับเวลาที่เครื่องลูก ──
-    setInterval(() => {
-      if (!local.isGameActive) return;
-      local.timeLeft = Math.max(0, local.timeLeft - 1);
-      if (local.timeLeft === 0) local.isGameActive = false;
-      render();
-      push({ timeLeft: local.timeLeft, isGameActive: local.isGameActive });
-    }, 1000);
+    let currentAnswers = [];
+    let currentHints = [];
+    let mistakes = 0;
+    let hp = 3;
+    let score = 1000;
+    let streak = 0;
+    let riddleActive = false;
+    let timerInterval = null;
+    let typeToken = 0;      // ใช้ยกเลิก typewriter เก่าเมื่อมีโจทย์ใหม่/รีเซ็ต
+    let synced = false;
 
-    // ── Socket ──
-    socket.on('connect', () => ($('net').textContent = '🟢 ออนไลน์'));
-    socket.on('disconnect', () => ($('net').textContent = '🔴 ออฟไลน์'));
-    socket.on('server:state', (s) => { if (!synced) { synced = true; local = { ...s }; render(); } });
-    socket.on('client:reset', (s) => { synced = true; local = { ...s }; render(); });
-    socket.on('client:force-pass', () => { local.currentAnswer = ''; local.scannedChips = []; render(); });
+    // ───────────── UI helpers ─────────────
+    const setStatus = (t) => ($('systemStatus').textContent = 'Status: ' + t);
+    const setInput = (on) => { $('answerInput').disabled = !on; $('submitBtn').disabled = !on; };
+
+    function updateStats() {
+        $('score').textContent = score;
+        $('streak').textContent = streak;
+        $('hp').textContent = '❤️'.repeat(hp) + '🖤'.repeat(3 - hp);
+    }
+
+    function renderChips(list) {
+        $('chips').textContent = !riddleActive && list.length
+            ? 'แท็กที่สแกนแล้ว: ' + list.map((c) => c.chipName).join(' + ')
+            : '';
+    }
+
+    function showWaiting() {
+        $('storyBoard').innerHTML = '<span class="pulse" id="waitingText">รอรับข้อมูล... กรุณาวางบล็อกคำศัพท์บนกระดาน</span>';
+        $('hintBox').textContent = '';
+        $('answerInput').value = '';
+        setInput(false);
+    }
+
+    // ───────────── ตรรกะรอบเกม ─────────────
+    function startScoreTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (score > 100) { score -= 10; updateStats(); push({ score }); }
+        }, 1000);
+    }
+
+    function typeWriter(text) {
+        const token = ++typeToken;
+        const board = $('storyBoard');
+        const chars = Array.from(text);
+        board.textContent = '';
+        setInput(false);
+
+        let i = 0;
+        (function type() {
+            if (token !== typeToken) return; // ถูกแทนที่ด้วยโจทย์ใหม่/รีเซ็ตแล้ว
+            if (i < chars.length) {
+                board.textContent += chars[i++];
+                setTimeout(type, 30);
+            } else {
+                setInput(true);
+                $('answerInput').focus();
+                setStatus('Waiting for your answer...');
+                startScoreTimer();
+            }
+        })();
+    }
+
+    function startRiddle(data) {
+        currentAnswers = data.answers || [];
+        currentHints = data.hints || [];
+        hp = 3; score = 1000; mistakes = 0;
+        riddleActive = true;
+        updateStats();
+        renderChips([]);
+        $('hintBox').textContent = '';
+        $('answerInput').value = '';
+        setStatus('Generating Riddle...');
+        typeWriter(data.story || '');
+    }
+
+    function endRound() {
+        clearInterval(timerInterval);
+        typeToken++;
+        riddleActive = false;
+        setInput(false);
+        $('answerInput').value = '';
+        setStatus('Waiting for NFC tap...');
+        push({ isGameActive: false, score, hp, streak, currentAnswer: '' });
+    }
+
+    function checkAnswer() {
+        if (!riddleActive) return;
+        const inputStr = $('answerInput').value.trim().toLowerCase();
+        if (inputStr === '') return;
+
+        const isCorrect = currentAnswers.some((ans) => inputStr === String(ans).toLowerCase());
+
+        if (isCorrect) {
+            streak++;
+            $('storyBoard').innerHTML = `<span style="color:var(--primary);">🎉 ถูกต้อง! คำตอบคือ "${esc(currentAnswers[0])}"</span><br><br>กรุณาวางบล็อกคำศัพท์ชุดใหม่...`;
+            $('hintBox').textContent = `ยอดเยี่ยม! คุณได้คะแนนไป ${score} คะแนน`;
+            updateStats();
+            endRound();
+        } else {
+            mistakes++; hp--; score = Math.max(0, score - 200); streak = 0;
+            updateStats();
+            push({ score, hp, streak });
+
+            if (hp <= 0) {
+                $('storyBoard').innerHTML = `<span style="color:var(--error);">💀 Game Over!</span><br><br>คำตอบที่ถูกต้องคือ "${esc(currentAnswers[0])}"<br>กรุณาวางบล็อกคำศัพท์ชุดใหม่...`;
+                $('hintBox').textContent = '';
+                endRound();
+            } else {
+                $('hintBox').textContent = `❌ ผิดครับ! คำใบ้: ${currentHints[mistakes - 1] || 'ลองคิดอีกครั้ง'}`;
+                $('answerInput').value = '';
+                $('answerInput').focus();
+                push({ currentAnswer: '' });
+            }
+        }
+    }
+
+    $('submitBtn').addEventListener('click', checkAnswer);
+    $('answerInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') checkAnswer(); });
+    $('answerInput').addEventListener('input', (e) => { if (riddleActive) push({ currentAnswer: e.target.value }); });
+
+    // ───────────── Socket events ─────────────
+    socket.on('connect', () => {
+        synced = false;
+        setStatus('Connected to Server. Waiting for NFC tap...');
+        if (!riddleActive) showWaiting();
+    });
+    socket.on('disconnect', () => setStatus('Disconnected — กำลังเชื่อมต่อใหม่...'));
+    socket.on('connect_error', () => setStatus('Connecting... (เซิร์ฟเวอร์อาจกำลังตื่น รอสักครู่)'));
+
+    socket.on('server:state', (s) => {
+        // รีเฟรชหน้ากลางรอบ: เซิร์ฟเวอร์ยังคิดว่ากำลังเล่นอยู่ แต่หน้านี้ไม่มีโจทย์ → ปล่อยให้สแกนชุดใหม่ได้
+        if (!synced) {
+            synced = true;
+            if (s.isGameActive && !riddleActive) push({ isGameActive: false });
+            streak = s.streak || 0;
+            updateStats();
+        }
+        renderChips(s.scannedChips || []);
+    });
+
     socket.on('server:nfc-scanned', (chip) => {
-      local.scannedChips = [...local.scannedChips, chip].slice(-50);
-      render();
-      // TODO: ใส่ตรรกะตรวจคำตอบ/ให้คะแนนจาก chip ตรงนี้ แล้วเรียก push({ score, streak })
+        if (!riddleActive) setStatus(`สแกนแท็ก "${chip.chipName}" แล้ว`);
     });
 
-    $('answer').addEventListener('input', (e) => {
-      local.currentAnswer = e.target.value;
-      push({ currentAnswer: local.currentAnswer });
+    socket.on('server:scan-error', (e) => { if (!riddleActive) setStatus('⚠️ ' + (e.message || 'ไม่พบแท็กในฐานข้อมูล')); });
+
+    // เซิร์ฟเวอร์สแกนครบตามโจทย์ → ส่งโจทย์มาให้เริ่มเกม (เทียบเท่า action "start_game" เดิม)
+    socket.on('server:start-game', startRiddle);
+
+    // เครื่องแม่สั่งรีเซ็ต
+    socket.on('client:reset', () => {
+        clearInterval(timerInterval);
+        typeToken++;
+        riddleActive = false;
+        hp = 3; score = 1000; streak = 0; mistakes = 0;
+        updateStats();
+        renderChips([]);
+        showWaiting();
+        setStatus('ถูกรีเซ็ตโดยเครื่องแม่ — Waiting for NFC tap...');
     });
 
-    // ── Web Serial: อ่านบรรทัดจากบอร์ด/Reader แล้วส่งเข้า client:nfc-scanned ──
-    // รองรับบรรทัดแบบ JSON {"uid":"..","chipName":".."} หรือ CSV uid,chipName
+    // เครื่องแม่สั่งข้ามข้อ
+    socket.on('client:force-pass', () => {
+        if (!riddleActive) return;
+        clearInterval(timerInterval);
+        typeToken++;
+        riddleActive = false;
+        $('storyBoard').innerHTML = `<span style="color:var(--primary);">⏭️ ข้ามข้อนี้</span><br><br>คำตอบคือ "${esc(currentAnswers[0] || '-')}"<br>กรุณาวางบล็อกคำศัพท์ชุดใหม่...`;
+        $('hintBox').textContent = '';
+        $('answerInput').value = '';
+        setInput(false);
+        setStatus('Waiting for NFC tap...');
+    });
+
+    // ───────────── Web Serial (ช่องทางสำรอง: Reader ต่อ USB เข้าเครื่องลูก) ─────────────
+    // รองรับ: JSON {"tag_id":"TAG_100"} | บรรทัดที่มี TAG_xxx | JSON {"uid","chipName"} | CSV uid,chipName | "... UID: 04A23B1C"
     function parseLine(line) {
-      try {
-        const o = JSON.parse(line);
-        if (o && o.uid && o.chipName) return { uid: String(o.uid), chipName: String(o.chipName) };
-      } catch (_) {}
-      const [uid, ...rest] = line.split(/[,;|]/).map((s) => s.trim());
-      const chipName = rest.join(',');
-      return uid && chipName ? { uid, chipName } : null;
+        const asScan = (o) => {
+            const tag = o.tag_id || o.tagId || o.tagData || o.chipName;
+            const uid = o.uid ? String(o.uid) : '';
+            if (!tag && !uid) return null;
+            return { uid, chipName: String(tag || 'Tag ' + uid), tagData: tag ? String(tag) : undefined };
+        };
+        try {
+            const o = JSON.parse(line);
+            if (o && typeof o === 'object') { const r = asScan(o); if (r) return r; }
+        } catch (_) {}
+        const t = line.match(/TAG_\w+/i);
+        if (t) { const id = t[0].toUpperCase(); return { uid: '', chipName: id, tagData: id }; }
+        const m = line.match(/UID:\s*([0-9A-Fa-f]{4,})/);
+        if (m) { const uid = m[1].toUpperCase(); return { uid, chipName: 'Tag ' + uid }; }
+        const [uid, ...rest] = line.split(/[,;|]/).map((x) => x.trim());
+        const chipName = rest.join(',');
+        return uid && chipName ? { uid, chipName } : null;
+    }
+
+    function explainSerialError(err) {
+        switch (err && err.name) {
+            case 'NotFoundError': return 'ไม่ได้เลือกพอร์ต (ยกเลิกหน้าต่างเลือก หรือไม่พบอุปกรณ์)';
+            case 'InvalidStateError': return 'พอร์ตนี้ถูกเปิดอยู่แล้วในหน้านี้ — กดตัดการเชื่อมต่อก่อน แล้วลองใหม่';
+            case 'SecurityError': return 'เบราว์เซอร์ไม่อนุญาตให้ใช้ Serial (ต้องเปิดผ่าน https:// หรือ localhost)';
+            case 'NetworkError': return 'เปิดพอร์ตไม่ได้ — มักมีโปรแกรมอื่นใช้พอร์ตอยู่ (Serial Monitor, แท็บอื่น) หรือยังไม่ได้ลงไดรเวอร์ USB หรือเลือกพอร์ตผิด';
+            default: return (err && err.message) || 'เชื่อมต่อไม่สำเร็จ';
+        }
+    }
+
+    let serialPort = null, serialReader = null, serialBusy = false;
+
+    function setSerialUi(connected, msg) {
+        $('serialBtn').textContent = connected ? 'ตัดการเชื่อมต่อ' : 'เชื่อมต่อ Reader (Web Serial)';
+        $('baud').disabled = connected;
+        $('serialStatus').textContent = msg || (connected ? '🟢 Reader เชื่อมต่อแล้ว' : '⚪ ยังไม่ได้เชื่อมต่อ');
     }
 
     async function connectSerial() {
-      if (!('serial' in navigator)) return alert('เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge บนคอมพิวเตอร์)');
-      try {
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: Number($('baud').value) });
-        $('serialStatus').textContent = '🟢 Reader เชื่อมต่อแล้ว';
+        if (serialBusy) { if (serialReader) serialReader.cancel().catch(() => {}); return; }
+        if (!('serial' in navigator)) return alert('เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge บนคอมพิวเตอร์)');
 
-        const decoder = new TextDecoderStream();
-        port.readable.pipeTo(decoder.writable).catch(() => {});
-        const reader = decoder.readable.getReader();
-        let buf = '';
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buf += value;
-          let i;
-          while ((i = buf.indexOf('\n')) >= 0) {
-            const line = buf.slice(0, i).trim();
-            buf = buf.slice(i + 1);
-            const scan = line && parseLine(line);
-            if (scan) socket.emit('client:nfc-scanned', { ...scan, source: 'web-serial' });
-          }
+        serialBusy = true;
+        let closed = null, errorMsg = null;
+        try {
+            serialPort = await navigator.serial.requestPort();
+            await serialPort.open({ baudRate: Number($('baud').value) });
+            setSerialUi(true);
+
+            const decoder = new TextDecoderStream();
+            closed = serialPort.readable.pipeTo(decoder.writable).catch(() => {});
+            serialReader = decoder.readable.getReader();
+
+            let buf = '';
+            while (true) {
+                const { value, done } = await serialReader.read();
+                if (done) break;
+                buf += value;
+                let i;
+                while ((i = buf.indexOf('\n')) >= 0) {
+                    const line = buf.slice(0, i).trim();
+                    buf = buf.slice(i + 1);
+                    const scan = line && parseLine(line);
+                    if (scan) socket.emit('client:nfc-scanned', { ...scan, source: 'web-serial' });
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            errorMsg = '🔴 ' + explainSerialError(err);
+        } finally {
+            try { if (serialReader) await serialReader.cancel(); } catch (_) {}
+            try { if (closed) await closed; } catch (_) {}
+            try { if (serialPort) await serialPort.close(); } catch (_) {}
+            serialPort = serialReader = null;
+            serialBusy = false;
+            setSerialUi(false, errorMsg);
         }
-      } catch (err) {
-        console.error(err);
-        $('serialStatus').textContent = '🔴 ' + (err.message || 'เชื่อมต่อไม่สำเร็จ');
-      }
     }
-    $('serialBtn').onclick = connectSerial;
-  </script>
+    $('serialBtn').addEventListener('click', connectSerial);
+
+    // เซิร์ฟเวอร์สั่งให้เขียน ID ถัดไปลงแท็ก (action "write_tag" เดิม) → ส่งต่อให้ Reader ผ่าน Web Serial
+    socket.on('server:write-tag', async ({ payload } = {}) => {
+        if (!payload || !serialPort || !serialPort.writable) return;
+        let writer;
+        try {
+            writer = serialPort.writable.getWriter();
+            await writer.write(new TextEncoder().encode(JSON.stringify({ action: 'write_tag', payload }) + '\n'));
+        } catch (err) {
+            console.error('ส่งคำสั่ง write_tag ไม่สำเร็จ', err);
+        } finally {
+            try { if (writer) writer.releaseLock(); } catch (_) {}
+        }
+    });
+
+    updateStats();
+</script>
+
 </body>
 </html>
