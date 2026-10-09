@@ -31,7 +31,7 @@ let state = createState();
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.get('/', (_req, res) => res.redirect('/game.html'));
+app.get('/', (_req, res) => res.redirect('/Web.html'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
