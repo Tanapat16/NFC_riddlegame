@@ -25,6 +25,9 @@
         .serial-row { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .serial-row select { background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; padding: 6px 8px; font-family: 'Kanit', sans-serif; }
         button.ghost { padding: 6px 14px; font-size: 14px; background: transparent; color: var(--primary); border: 1px solid var(--primary); font-weight: 400; }
+        .serial-opt { display:flex; gap:6px; align-items:flex-start; margin-top:8px; line-height:1.4; }
+        details.serial-log { margin-top:8px; }
+        details.serial-log pre { background:#0b1120; color:#a7f3d0; border-radius:8px; padding:10px; margin:6px 0 0; max-height:180px; overflow:auto; font-size:12px; white-space:pre-wrap; word-break:break-all; }
         .pulse { animation: pulse 1.5s infinite; opacity: 0.5; }
         @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
     </style>
@@ -60,6 +63,8 @@
             <button id="serialBtn" class="ghost" type="button">เชื่อมต่อ Reader (Web Serial)</button>
             <span id="serialStatus">⚪ ยังไม่ได้เชื่อมต่อ</span>
         </div>
+        <label class="serial-opt"><input type="checkbox" id="serialViewOnly" checked><span>ดู log เท่านั้น — ESP32 ส่งข้อมูลเข้าเซิร์ฟเวอร์ผ่าน Wi-Fi เอง (เอาติ๊กออกเฉพาะเมื่อ Reader ส่งข้อมูลผ่านสาย USB อย่างเดียว ไม่งั้นจะสแกนซ้ำ)</span></label>
+        <details class="serial-log" id="logWrap"><summary>Serial log จาก ESP32</summary><pre id="serialLog">(ยังไม่มีข้อมูล)</pre></details>
     </div>
 </div>
 
@@ -281,10 +286,19 @@
     }
 
     let serialPort = null, serialReader = null, serialBusy = false;
+    const serialLines = [];
+    function logSerial(line) {
+        serialLines.push(line);
+        if (serialLines.length > 80) serialLines.shift();
+        const el = $('serialLog');
+        el.textContent = serialLines.join('\n');
+        el.scrollTop = el.scrollHeight;
+    }
 
     function setSerialUi(connected, msg) {
         $('serialBtn').textContent = connected ? 'ตัดการเชื่อมต่อ' : 'เชื่อมต่อ Reader (Web Serial)';
         $('baud').disabled = connected;
+        if (connected) $('logWrap').open = true;
         $('serialStatus').textContent = msg || (connected ? '🟢 Reader เชื่อมต่อแล้ว' : '⚪ ยังไม่ได้เชื่อมต่อ');
     }
 
@@ -312,7 +326,10 @@
                 while ((i = buf.indexOf('\n')) >= 0) {
                     const line = buf.slice(0, i).trim();
                     buf = buf.slice(i + 1);
-                    const scan = line && parseLine(line);
+                    if (!line) continue;
+                    logSerial(line);
+                    if ($('serialViewOnly').checked) continue; // โหมดดูอย่างเดียว ไม่ส่งสแกนขึ้นเซิร์ฟเวอร์
+                    const scan = parseLine(line);
                     if (scan) socket.emit('client:nfc-scanned', { ...scan, source: 'web-serial' });
                 }
             }
